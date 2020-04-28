@@ -41,7 +41,7 @@ class RegistroSerializer(serializers.ModelSerializer):
 class UsuarioSeguidoSerializer(serializers.ModelSerializer):
     class Meta:
         model = UsuarioSeguido
-        fields = ['usuario_seguidor', 'usuario_seguido', 'fecha_publicado']
+        fields = ['usuario_seguidor', 'usuario_seguido', 'fecha_seguido']
 
 #serializador de usuarios
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -52,7 +52,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Usuario
         fields = ['pk', 'email', 'username', 'nombre', 'apellido1', 'apellido2', 'fecha_nacimiento', 
-        'telefono', 'descripcion', 'imagen', 'n_seguidores', 'n_seguidos', 'seguidos', 'seguidores']
+        'telefono', 'descripcion', 'genero', 'imagen', 'n_seguidores', 'n_seguidos', 'seguidos', 'seguidores']
 
 class UpdateUsuarioSerializer(serializers.ModelSerializer):
     class Meta:

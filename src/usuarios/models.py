@@ -119,7 +119,7 @@ def crear_token(sender, instance = None, created = False, **kwargs):
 class UsuarioSeguido(models.Model):
     usuario_seguidor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE, related_name = 'seguidos')
     usuario_seguido = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE, related_name = 'seguidores')
-    fecha_publicado = models.DateTimeField(verbose_name = 'fecha publicado', auto_now = True)
+    fecha_seguido = models.DateTimeField(verbose_name = 'fecha seguido', auto_now = True)
     #metadatos para establecer una clave primaria compuesta
     class Meta:
         unique_together = ('usuario_seguidor', 'usuario_seguido',)
