@@ -87,6 +87,7 @@ class Usuario(AbstractBaseUser):
     descripcion = models.TextField(verbose_name = 'descripcion', default = '');
     n_seguidores = models.IntegerField(verbose_name = 'seguidores', default = 0)
     n_seguidos = models.IntegerField(verbose_name = 'seguidos', default = 0)
+    n_publicaciones = models.IntegerField(verbose_name = 'publicaciones', default = 0)
     imagen = models.ImageField(upload_to = ruta_guardar, null = True, blank = True)
 
     class Genero(models.TextChoices):#clase interna que funciona como un Enum

@@ -1,15 +1,18 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated 
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.generics import ListAPIView 
 from rest_framework.filters import OrderingFilter
+from django.db.models import F, Q
 
-from usuarios.models import Usuario
-from publicaciones.models import Publicacion
-from publicaciones.api.serializers import PublicacionSerializer
+
+from usuarios.models import Usuario, UsuarioSeguido
+from publicaciones.models import Publicacion, MeGusta, Comentario
+from publicaciones.api.serializers import PublicacionSerializer, MeGustaSerializer, CreatePublicacionSerializer, ComentarioSerializer, CreateComentarioSerializer
 
 #anotacion que solo acepta peticiones get
 @api_view(['GET'])
@@ -39,7 +42,7 @@ def api_update_publicacion(request, slug):
         return Response({'response' : 'No tienes permiso para editar esta publicación'})
     #doble comprobacion
     if request.method == 'PUT':
-        serializer = PublicacionSerializer(publicacion, data = request.data)#serializamos los datos
+        serializer = CreatePublicacionSerializer(publicacion, data = request.data)#serializamos los datos
         data = {}#array en el que devolvemos datos
         if serializer.is_valid():#si los datos enviados son validos, se guarda
             serializer.save()
@@ -76,7 +79,7 @@ def api_create_publicacion(request):
     publicacion = Publicacion(usuario = usuario)
     #doble comprobacion
     if request.method == "POST":
-        serializer = PublicacionSerializer(publicacion, data = request.data)
+        serializer = CreatePublicacionSerializer(publicacion, data = request.data)
         data = {}#array en el que devolvemos datos
         if serializer.is_valid():#si los datos enviados son validos, se guarda
             serializer.save()
@@ -94,3 +97,114 @@ class PublicacionListAPIView(ListAPIView):
     pagination_class = PageNumberPagination#la clase de paginacion
     filter_backends = (OrderingFilter,)#ademas, se puede ordenar por parametros get
 
+class PublicacionFeed(ListAPIView):
+    def get_queryset(self):
+        seguidos = UsuarioSeguido.objects.filter(Q(usuario_seguidor = self.request.user.pk) | Q(usuario_seguido = self.request.user.pk)).values('usuario_seguido')
+        seguidos != Usuario.objects.get(pk = self.request.user.pk)
+        return Publicacion.objects.filter(usuario__in = seguidos).order_by('-fecha_publicado')
+    queryset = get_queryset#elementos buscados
+    serializer_class = PublicacionSerializer#serializador
+    authentication_classes = (TokenAuthentication,)#clases de autenticacion (token)
+    permission_classes = (IsAuthenticated,)#unicamente funciona si se provee el token en el header
+    pagination_class = PageNumberPagination#la clase de paginacion
+    filter_backends = (OrderingFilter,)#ademas, se puede ordenar por parametros get
+
+class UsuarioFeed(ListAPIView):
+    def get_queryset(self):
+        usuario = Usuario.objects.get(username = self.kwargs['username'])
+        return Publicacion.objects.filter(usuario = usuario).order_by('-fecha_publicado')
+    queryset = get_queryset#elementos buscados
+    serializer_class = PublicacionSerializer#serializador
+    authentication_classes = (TokenAuthentication,)#clases de autenticacion (token)
+    permission_classes = (IsAuthenticated,)#unicamente funciona si se provee el token en el header
+    pagination_class = PageNumberPagination#la clase de paginacion
+    filter_backends = (OrderingFilter,)#ademas, se puede ordenar por parametros get
+
+class ComentariosPublicacion(ListAPIView):
+    def get_queryset(self):
+        return Comentario.objects.filter(publicacion = self.request.GET.get('id'))
+    queryset = get_queryset#elementos buscados
+    serializer_class = ComentarioSerializer#serializador
+    authentication_classes = (TokenAuthentication,)#clases de autenticacion (token)
+    permission_classes = (IsAuthenticated,)#unicamente funciona si se provee el token en el header
+    pagination_class = PageNumberPagination#la clase de paginacion
+    filter_backends = (OrderingFilter,)#ademas, se puede ordenar por parametros get
+
+
+@api_view(['POST'])
+@permission_classes((IsAuthenticated,))#comprobamos si se envia un token en el header de la peticion
+def api_like_publicacion(request):
+    try:#comprobamos que el ususario exista
+        #el usuario se busca a traves del token enviado
+        usuario = request.user
+    except Usuario.DoesNotExist:
+        return Response(status = status.HTTP_404_NOT_FOUND)
+    if request.method == "POST":
+        serializer = MeGustaSerializer(data = request.data)
+        data = {}
+        if serializer.is_valid():
+            serializer.validated_data['usuario'] = request.user
+            serializer.validated_data['publicacion'] = serializer.validated_data['publicacion']
+            serializer.save()
+            Publicacion.objects.filter(pk = serializer.validated_data['publicacion'].pk).update(n_likes = F('n_likes')+1)
+            data['response'] = "Success"
+            return Response(status = status.HTTP_201_CREATED, data = data)
+        else:
+            data['response'] = "Credenciales erroneas"
+            return Response(status = status.HTTP_400_BAD_REQUEST, data = serializer.errors)
+        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+
+@api_view(['DELETE'])
+@permission_classes((IsAuthenticated,))#comprobamos si se envia un token en el header de la peticion
+def api_unlike_publicacion(request, publicacion):
+    try:#comprobamos que el ususario exista
+        #el usuario se busca a traves del token enviado
+        usuario = request.user
+    except Usuario.DoesNotExist:
+        data = {}
+        data['publicacion'] = publicacion
+        data['usuario'] = usuario
+        return Response(status = status.HTTP_404_NOT_FOUND, data = data)
+    #doble comprobacion
+    try:#comprobamos si existe el objeto
+        megusta = MeGusta.objects.get(publicacion = publicacion, usuario = request.user)
+    except MeGusta.DoesNotExist:
+        return Response(status = status.HTTP_404_NOT_FOUND)
+    if request.method == 'DELETE':
+        data = {}
+        if(usuario.username == Token.objects.get(user = usuario.pk).user.username):
+            Publicacion.objects.filter(pk = publicacion).update(n_likes = F('n_likes')-1)
+            if megusta.delete():
+                data['response'] = 'Success'
+            else:
+                data['response'] = "Failure"
+            return Response(status = status.HTTP_200_OK, data = data)
+        else:
+            data['response'] = "Credenciales erroneas"
+            return Response(status = status.HTTP_400_BAD_REQUEST, data = data)
+        return Response(status = status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes((IsAuthenticated,))
+def post_comment(request):
+    try:#comprobamos que el ususario exista
+        #el usuario se busca a traves del token enviado
+        usuario = request.user
+    except Usuario.DoesNotExist:
+        return Response(status = status.HTTP_404_NOT_FOUND)
+    data = {}
+    if request.method == "POST":
+        serializer = CreateComentarioSerializer(data = request.data)
+
+        if serializer.is_valid():
+            serializer.validated_data['usuario'] = request.user
+            serializer.validated_data['publicacion'] = serializer.validated_data['publicacion']
+            serializer.save()
+            Publicacion.objects.filter(pk = serializer.validated_data['publicacion'].pk).update(n_comentarios = F('n_comentarios')+1)
+            data['response'] = "Success"
+            return Response(status = status.HTTP_201_CREATED, data = data)
+        else:
+            data['response'] = "Credenciales erroneas"
+            return Response(status = status.HTTP_400_BAD_REQUEST, data = serializer.errors)
+        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)

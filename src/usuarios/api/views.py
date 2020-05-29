@@ -6,8 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.generics import ListAPIView 
-from rest_framework.filters import OrderingFilter
-from django.db.models import F
+from rest_framework.filters import OrderingFilter, SearchFilter
+from django.db.models import F, Subquery
 
 from usuarios.models import UsuarioSeguido, Usuario
 from usuarios.api.serializers import RegistroSerializer, UsuarioSerializer, UpdateUsuarioSerializer, UsuarioSeguidoSerializer
@@ -49,7 +49,21 @@ def api_get_usuario(request):
         return Response(status = status.HTTP_404_NOT_FOUND)
     #doble comprobacion
     if request.method == 'GET':#se serializa los datos y se devuelven
-        serializer = UsuarioSerializer(usuario)
+        serializer = UsuarioSerializer(usuario, context = {"request": request})
+        return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes((IsAuthenticated,))#si se envia token se ejecuta
+def api_get_userData(request, username):
+    try:#comprobamos que el ususario exista
+        #el usuario se busca a traves del token enviado
+        usuario = request.user
+    except Usuario.DoesNotExist:
+        return Response(status = status.HTTP_404_NOT_FOUND)
+    #doble comprobacion
+    if request.method == 'GET':#se serializa los datos y se devuelven
+        user = Usuario.objects.get(username = username)
+        serializer = UsuarioSerializer(user, context = {"request": request})
         return Response(serializer.data)
 
 
@@ -76,7 +90,7 @@ def api_update_usuario(request):
 
 class SeguidoresListAPIView(ListAPIView):
     def get_queryset(self):
-        return UsuarioSeguido.objects.filter(usuario_seguido = self.request.user.pk)
+        return UsuarioSeguido.objects.filter(usuario_seguido = self.kwargs['usuario_seguido']).order_by('-fecha_seguido')
     queryset = get_queryset#elementos buscados
     serializer_class = UsuarioSeguidoSerializer#serializador
     authentication_classes = (TokenAuthentication,)#clases de autenticacion (token)
@@ -86,13 +100,66 @@ class SeguidoresListAPIView(ListAPIView):
 
 class SeguidosListAPIView(ListAPIView):
     def get_queryset(self):
-        return UsuarioSeguido.objects.filter(usuario_seguidor = self.request.user.pk)
+        return UsuarioSeguido.objects.filter(usuario_seguidor = self.kwargs['usuario_seguidor']).order_by('-fecha_seguido')
     queryset = get_queryset#elementos buscados
     serializer_class = UsuarioSeguidoSerializer#serializador
     authentication_classes = (TokenAuthentication,)#clases de autenticacion (token)
     permission_classes = (IsAuthenticated,)#unicamente funciona si se provee el token en el header
     pagination_class = PageNumberPagination#la clase de paginacion
     filter_backends = (OrderingFilter,)#ademas, se puede ordenar por parametros get
+
+class UsuariosListAPIView(ListAPIView):
+    def get_queryset(self):
+        return Usuario.objects.all()
+    queryset = get_queryset#elementos buscados
+    serializer_class = UsuarioSerializer#serializador
+    authentication_classes = (TokenAuthentication,)#clases de autenticacion (token)
+    permission_classes = (IsAuthenticated,)#unicamente funciona si se provee el token en el header
+    pagination_class = PageNumberPagination#la clase de paginacion
+    filter_backends = (OrderingFilter, SearchFilter)#ademas, se puede ordenar por parametros get
+    search_fields = ('username', 'nombre')
+
+class SeguidoresDataListAPIView(ListAPIView):
+    def get_queryset(self):
+        usuarios_seguidores = UsuarioSeguido.objects.filter(usuario_seguido = self.kwargs['usuario_seguido']).order_by('-fecha_seguido')
+        return Usuario.objects.filter(pk__in = Subquery(usuarios_seguidores.values('usuario_seguidor')))
+    queryset = get_queryset#elementos buscados
+    serializer_class = UsuarioSerializer#serializador
+    authentication_classes = (TokenAuthentication,)#clases de autenticacion (token)
+    permission_classes = (IsAuthenticated,)#unicamente funciona si se provee el token en el header
+    pagination_class = PageNumberPagination#la clase de paginacion
+    filter_backends = (OrderingFilter, SearchFilter)#ademas, se puede ordenar por parametros get
+    search_fields = ('username', 'nombre')
+
+class SeguidosDataListAPIView(ListAPIView):
+    def get_queryset(self):
+        usuarios_seguidos = UsuarioSeguido.objects.filter(usuario_seguidor = self.kwargs['usuario_seguidor']).order_by('-fecha_seguido')
+        return Usuario.objects.filter(id__in = Subquery(usuarios_seguidos.values('usuario_seguido')))
+    queryset = get_queryset#elementos buscados
+    serializer_class = UsuarioSerializer#serializador
+    authentication_classes = (TokenAuthentication,)#clases de autenticacion (token)
+    permission_classes = (IsAuthenticated,)#unicamente funciona si se provee el token en el header
+    pagination_class = PageNumberPagination#la clase de paginacion
+    filter_backends = (OrderingFilter, SearchFilter)#ademas, se puede ordenar por parametros get
+    search_fields = ('username', 'nombre')
+
+@api_view(['GET'])
+@permission_classes((IsAuthenticated,))
+def api_get_if_follows(request, usuario_seguido):
+    try:#comprobamos que el ususario exista
+        #el usuario se busca a traves del token enviado
+        usuario = request.user
+    except Usuario.DoesNotExist:
+        return Response(status = status.HTTP_404_NOT_FOUND)
+    if request.method == "GET":
+        data = {}
+        try:
+            UsuarioSeguido.objects.get(usuario_seguidor = usuario, usuario_seguido = usuario_seguido)
+            data['response'] = "True"
+            return Response(data = data)
+        except UsuarioSeguido.DoesNotExist:
+            data['response'] = "False"
+            return Response(data = data)
 
 #vista para seguir un usuario
 @api_view(['POST'])
@@ -150,4 +217,4 @@ def api_unfollow_user(request, usuario_seguidor, usuario_seguido):
         else:
             data['response'] = "Credenciales erroneas"
             return Response(status = status.HTTP_400_BAD_REQUEST, data = data)
-        return Response(serializer.errors, status = status.HTTP_400_BAD_REQUEST)
+        return Response(status = status.HTTP_400_BAD_REQUEST)

@@ -46,16 +46,21 @@ class UsuarioSeguidoSerializer(serializers.ModelSerializer):
 #serializador de usuarios
 class UsuarioSerializer(serializers.ModelSerializer):
     #llamadas a los serializadores para obtener las relaciones de seguimiento
-    seguidos = UsuarioSeguidoSerializer(many = True)
-    seguidores = UsuarioSeguidoSerializer(many = True)
+    imagen = serializers.SerializerMethodField('get_user_image')
     
     class Meta:
         model = Usuario
         fields = ['pk', 'email', 'username', 'nombre', 'apellido1', 'apellido2', 'fecha_nacimiento', 
-        'telefono', 'descripcion', 'genero', 'imagen', 'n_seguidores', 'n_seguidos', 'seguidos', 'seguidores']
+        'telefono', 'descripcion', 'genero', 'imagen', 'n_seguidores', 'n_seguidos', 'n_publicaciones']
+
+    def get_user_image(self, usuario):
+        if usuario.imagen:
+            return self.context.get('request').build_absolute_uri(usuario.imagen.url)
+        else:
+            return ""
+
 
 class UpdateUsuarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Usuario
-        fields = ['pk', 'email', 'username', 'nombre', 'apellido1', 'apellido2', 'fecha_nacimiento', 
-        'telefono', 'descripcion', 'imagen']
+        fields = ['pk', 'email', 'username', 'nombre', 'fecha_nacimiento', 'telefono', 'descripcion', 'imagen']
