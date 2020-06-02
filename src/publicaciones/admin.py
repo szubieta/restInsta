@@ -1,5 +1,5 @@
 from django.contrib import admin
-from publicaciones.models import Publicacion, Comentario, MeGusta
+from publicaciones.models import Publicacion, Comentario, MeGusta, PublicacionGuardada
 
 #clase que rellena con las clases la pagina admin de django
 
@@ -31,3 +31,4 @@ class MeGustaAdmin(admin.ModelAdmin):
 admin.site.register(Publicacion, PublicacionAdmin)
 admin.site.register(Comentario)
 admin.site.register(MeGusta)
+admin.site.register(PublicacionGuardada)

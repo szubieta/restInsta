@@ -25,7 +25,7 @@ SECRET_KEY = 'fwx%tf)+7*teouh3$)5)zwh+dsoake7q(-phvir3^qsxueg5#@'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '192.168.1.42', '192.168.1.44', '192.168.1.37']
+ALLOWED_HOSTS = ['localhost', '192.168.1.42', '192.168.1.44', '192.168.1.37', '192.168.1.39']
 
 
 # Application definition
@@ -52,7 +52,7 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PAGINATION_CLASS' : 'rest_framework.pagination.PageNumberPagination',#clase de paginacion
-    'PAGE_SIZE' : 10#cantidad de elementos msotrados por página
+    'PAGE_SIZE' : 16#cantidad de elementos msotrados por página
 }
 
 MIDDLEWARE = [

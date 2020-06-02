@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from publicaciones.models import Publicacion, Comentario, MeGusta
+from publicaciones.models import Publicacion, PublicacionGuardada, Comentario, MeGusta
 from usuarios.models import Usuario
 
 #serializador de comentarios, transforma en json
@@ -47,6 +47,18 @@ class MeGustaSerializer(serializers.ModelSerializer):
     class Meta:
         model = MeGusta
         fields = ['usuario', 'publicacion', 'fecha_publicado']
+
+    def get_username(self, megusta):#metodo que devuelve el nombre de usuario en vez del id
+        username = megusta.usuario.username
+        return username
+
+class PublicacionGuardadaSerializer(serializers.ModelSerializer):
+    #llamamos a un metodo del serializador
+    usuario = serializers.SerializerMethodField('get_username')
+    
+    class Meta:
+        model = PublicacionGuardada
+        fields = ['usuario', 'publicacion', 'fecha_guardado']
 
     def get_username(self, megusta):#metodo que devuelve el nombre de usuario en vez del id
         username = megusta.usuario.username

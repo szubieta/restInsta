@@ -30,6 +30,19 @@ class Publicacion(models.Model):
     def __str__(self):
         return self.usuario.username +', '+str(self.fecha_publicado)
 
+
+class PublicacionGuardada(models.Model):
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE)#claves foraneas que referencian otra clase
+    publicacion = models.ForeignKey(Publicacion, related_name = 'guardados',on_delete = models.CASCADE)
+    fecha_guardado = models.DateTimeField(verbose_name = 'fecha guardado', auto_now = True)
+
+    class Meta:
+        unique_together = ('usuario', 'publicacion',)
+
+    def __str__(self):
+        return self.usuario.username +" "+ self.publicacion.slug
+
+
 #modelo comentario que hereda de Model de django
 class Comentario(models.Model):
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE)#claves foraneas que referencian otra clase
